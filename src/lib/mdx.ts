@@ -1,0 +1,103 @@
+import fs from "fs";
+import path from "path";
+import matter from "gray-matter";
+import readingTime from "reading-time";
+import { compileMDX } from "next-mdx-remote/rsc";
+import { mdxComponents } from "@/components/mdx/MdxComponents";
+
+const CONTENT_DIR = path.join(process.cwd(), "content");
+
+export type ContentType = "oppskrifter" | "artikler";
+
+export interface ArticleFrontmatter {
+  title: string;
+  description: string;
+  date: string;
+  updatedDate?: string;
+  image: string;
+  imageAlt: string;
+  category: string;
+  tags: string[];
+  featured?: boolean;
+  draft?: boolean;
+  // Recipe-only
+  prepTime?: string;
+  cookTime?: string;
+  totalTime?: string;
+  servings?: string;
+  difficulty?: "Enkel" | "Middels" | "Avansert";
+  cuisine?: string;
+  ingredients?: string[];
+  calories?: string;
+}
+
+export interface ContentItem extends ArticleFrontmatter {
+  slug: string;
+  readingTime: number;
+}
+
+export function getSlugs(type: ContentType): string[] {
+  const dir = path.join(CONTENT_DIR, type);
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".mdx"))
+    .map((f) => f.replace(/\.mdx$/, ""));
+}
+
+export function getFrontmatter(
+  type: ContentType,
+  slug: string
+): ContentItem {
+  const filePath = path.join(CONTENT_DIR, type, `${slug}.mdx`);
+  const raw = fs.readFileSync(filePath, "utf-8");
+  const { data, content } = matter(raw);
+  const stats = readingTime(content);
+  return {
+    ...(data as ArticleFrontmatter),
+    slug,
+    readingTime: Math.ceil(stats.minutes),
+  };
+}
+
+export function getAllContent(type: ContentType): ContentItem[] {
+  const slugs = getSlugs(type);
+  return slugs
+    .map((slug) => getFrontmatter(type, slug))
+    .filter((item) => !item.draft)
+    .filter((item) => new Date(item.date) <= new Date())
+    .sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+}
+
+export function getFeaturedContent(limit = 6): ContentItem[] {
+  const all = [
+    ...getAllContent("oppskrifter"),
+    ...getAllContent("artikler"),
+  ]
+    .filter((item) => item.featured)
+    .sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+  return all.slice(0, limit);
+}
+
+export async function getCompiledMDX(type: ContentType, slug: string) {
+  const filePath = path.join(CONTENT_DIR, type, `${slug}.mdx`);
+  const raw = fs.readFileSync(filePath, "utf-8");
+
+  const { content, frontmatter } = await compileMDX<ArticleFrontmatter>({
+    source: raw,
+    options: { parseFrontmatter: true },
+    components: mdxComponents,
+  });
+
+  const stats = readingTime(raw);
+
+  return {
+    content,
+    frontmatter,
+    readingTime: Math.ceil(stats.minutes),
+  };
+}
