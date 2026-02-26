@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getSlugs, getCompiledMDX, getFrontmatter, getRelatedContent } from "@/lib/mdx";
+import { getSlugs, getCompiledMDX, getFrontmatter, getRelatedContent, parseFaqs } from "@/lib/mdx";
 import { ArticleHeader } from "@/components/articles/ArticleHeader";
 import { RecipeMeta } from "@/components/articles/RecipeMeta";
 import { RelatedContent } from "@/components/articles/RelatedContent";
@@ -58,6 +58,17 @@ export default async function RecipePage({
 
   const { content, frontmatter, readingTime } = compiled;
   const related = getRelatedContent(params.slug, "oppskrifter", frontmatter.tags ?? []);
+  const faqs = parseFaqs("oppskrifter", params.slug);
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Hjem", item: baseUrl },
+      { "@type": "ListItem", position: 2, name: "Oppskrifter", item: `${baseUrl}/oppskrifter/` },
+      { "@type": "ListItem", position: 3, name: frontmatter.title },
+    ],
+  };
 
   const recipeJsonLd = {
     "@context": "https://schema.org",
@@ -104,9 +115,21 @@ export default async function RecipePage({
     },
   };
 
+  const faqJsonLd = faqs.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: { "@type": "Answer", text: faq.answer },
+    })),
+  } : null;
+
   return (
     <article>
       <JsonLd data={recipeJsonLd} />
+      <JsonLd data={breadcrumbJsonLd} />
+      {faqJsonLd && <JsonLd data={faqJsonLd} />}
       <ArticleHeader
         title={frontmatter.title}
         description={frontmatter.description}

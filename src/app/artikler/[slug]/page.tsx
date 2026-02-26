@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getSlugs, getCompiledMDX, getFrontmatter, getRelatedContent } from "@/lib/mdx";
+import { getSlugs, getCompiledMDX, getFrontmatter, getRelatedContent, parseFaqs } from "@/lib/mdx";
 import { ArticleHeader } from "@/components/articles/ArticleHeader";
 import { RelatedContent } from "@/components/articles/RelatedContent";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -57,6 +57,17 @@ export default async function ArticlePage({
 
   const { content, frontmatter, readingTime } = compiled;
   const related = getRelatedContent(params.slug, "artikler", frontmatter.tags ?? []);
+  const faqs = parseFaqs("artikler", params.slug);
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Hjem", item: baseUrl },
+      { "@type": "ListItem", position: 2, name: "Artikler", item: `${baseUrl}/artikler/` },
+      { "@type": "ListItem", position: 3, name: frontmatter.title },
+    ],
+  };
 
   const articleJsonLd = {
     "@context": "https://schema.org",
@@ -84,9 +95,21 @@ export default async function ArticlePage({
     inLanguage: "nb-NO",
   };
 
+  const faqJsonLd = faqs.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: { "@type": "Answer", text: faq.answer },
+    })),
+  } : null;
+
   return (
     <article>
       <JsonLd data={articleJsonLd} />
+      <JsonLd data={breadcrumbJsonLd} />
+      {faqJsonLd && <JsonLd data={faqJsonLd} />}
       <ArticleHeader
         title={frontmatter.title}
         description={frontmatter.description}

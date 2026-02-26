@@ -108,6 +108,47 @@ export function getRelatedContent(
     .slice(0, limit);
 }
 
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+export function parseFaqs(type: ContentType, slug: string): FaqItem[] {
+  const filePath = path.join(CONTENT_DIR, type, `${slug}.mdx`);
+  const raw = fs.readFileSync(filePath, "utf-8");
+  const { content } = matter(raw);
+
+  const lines = content.split("\n");
+  const faqs: FaqItem[] = [];
+  let inFaqSection = false;
+  let currentQuestion = "";
+  let currentAnswer: string[] = [];
+
+  for (const line of lines) {
+    if (/^## (Vanlige spørsmål|Ofte stilte spørsmål)/.test(line)) {
+      inFaqSection = true;
+      continue;
+    }
+    if (!inFaqSection) continue;
+    if (/^## /.test(line)) break; // next H2 ends FAQ section
+
+    if (/^### /.test(line)) {
+      if (currentQuestion && currentAnswer.length) {
+        faqs.push({ question: currentQuestion, answer: currentAnswer.join(" ").trim() });
+      }
+      currentQuestion = line.replace(/^### /, "").trim();
+      currentAnswer = [];
+    } else if (currentQuestion && line.trim()) {
+      currentAnswer.push(line.trim());
+    }
+  }
+  if (currentQuestion && currentAnswer.length) {
+    faqs.push({ question: currentQuestion, answer: currentAnswer.join(" ").trim() });
+  }
+
+  return faqs;
+}
+
 export async function getCompiledMDX(type: ContentType, slug: string) {
   const filePath = path.join(CONTENT_DIR, type, `${slug}.mdx`);
   const raw = fs.readFileSync(filePath, "utf-8");
