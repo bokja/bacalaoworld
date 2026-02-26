@@ -29,6 +29,7 @@ export interface ArticleFrontmatter {
   cuisine?: string;
   ingredients?: string[];
   calories?: string;
+  steps?: string[];
 }
 
 export interface ContentItem extends ArticleFrontmatter {
@@ -81,6 +82,30 @@ export function getFeaturedContent(limit = 6): ContentItem[] {
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
   return all.slice(0, limit);
+}
+
+export function getRelatedContent(
+  currentSlug: string,
+  currentType: ContentType,
+  currentTags: string[],
+  limit = 3
+): (ContentItem & { type: ContentType })[] {
+  const tagSet = new Set(currentTags.map((t) => t.toLowerCase()));
+
+  const allWithType = [
+    ...getAllContent("artikler").map((item) => ({ ...item, type: "artikler" as ContentType })),
+    ...getAllContent("oppskrifter").map((item) => ({ ...item, type: "oppskrifter" as ContentType })),
+  ];
+
+  return allWithType
+    .filter((item) => !(item.slug === currentSlug && item.type === currentType))
+    .map((item) => {
+      const score = item.tags.filter((t) => tagSet.has(t.toLowerCase())).length;
+      return { ...item, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, limit);
 }
 
 export async function getCompiledMDX(type: ContentType, slug: string) {

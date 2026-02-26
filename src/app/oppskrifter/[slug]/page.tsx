@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getSlugs, getCompiledMDX, getFrontmatter } from "@/lib/mdx";
+import { getSlugs, getCompiledMDX, getFrontmatter, getRelatedContent } from "@/lib/mdx";
 import { ArticleHeader } from "@/components/articles/ArticleHeader";
 import { RecipeMeta } from "@/components/articles/RecipeMeta";
+import { RelatedContent } from "@/components/articles/RelatedContent";
 import { JsonLd } from "@/components/seo/JsonLd";
 
 const baseUrl = "https://bacalaoworld.no";
@@ -56,6 +57,7 @@ export default async function RecipePage({
   }
 
   const { content, frontmatter, readingTime } = compiled;
+  const related = getRelatedContent(params.slug, "oppskrifter", frontmatter.tags ?? []);
 
   const recipeJsonLd = {
     "@context": "https://schema.org",
@@ -88,6 +90,13 @@ export default async function RecipePage({
         "@type": "NutritionInformation",
         calories: frontmatter.calories,
       },
+    }),
+    ...(frontmatter.steps && {
+      recipeInstructions: frontmatter.steps.map((step, i) => ({
+        "@type": "HowToStep",
+        position: i + 1,
+        text: step,
+      })),
     }),
     mainEntityOfPage: {
       "@type": "WebPage",
@@ -123,6 +132,7 @@ export default async function RecipePage({
           {content}
         </div>
       </div>
+      <RelatedContent items={related} />
     </article>
   );
 }

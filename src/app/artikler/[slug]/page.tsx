@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getSlugs, getCompiledMDX, getFrontmatter } from "@/lib/mdx";
+import { getSlugs, getCompiledMDX, getFrontmatter, getRelatedContent } from "@/lib/mdx";
 import { ArticleHeader } from "@/components/articles/ArticleHeader";
+import { RelatedContent } from "@/components/articles/RelatedContent";
 import { JsonLd } from "@/components/seo/JsonLd";
 
 const baseUrl = "https://bacalaoworld.no";
@@ -55,6 +56,7 @@ export default async function ArticlePage({
   }
 
   const { content, frontmatter, readingTime } = compiled;
+  const related = getRelatedContent(params.slug, "artikler", frontmatter.tags ?? []);
 
   const articleJsonLd = {
     "@context": "https://schema.org",
@@ -101,6 +103,7 @@ export default async function ArticlePage({
           {content}
         </div>
       </div>
+      <RelatedContent items={related} />
     </article>
   );
 }
